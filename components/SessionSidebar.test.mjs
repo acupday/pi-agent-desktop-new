@@ -125,9 +125,7 @@ test("hides subagent rows and aggregates their state into the main session row",
   assert.doesNotMatch(source, /function SessionTreeItem/);
 });
 
-test("project more menu can open the folder and the title accepts a context menu", () => {
-  assert.match(source, /openPathNative\(cwd\)/);
-  assert.match(source, /t\("sidebar\.openFolder"\)/);
+test("project more menu supports rename and the title accepts a context menu", () => {
   assert.match(source, /t\("sidebar\.renameProject"\)/);
   assert.match(source, /startProjectRename\(projectMenu\.root\)/);
   assert.match(source, /APP_PREF_KEYS\.projectAliases/);
@@ -137,4 +135,21 @@ test("project more menu can open the folder and the title accepts a context menu
     source,
     /onContextMenu=\{\(e\) => openProjectContextMenu\(e, group\.projectRoot\)\}/,
   );
+});
+
+test("the project context menu reveals the project in the OS file manager", () => {
+  // Upstream's open-in-file-manager (#907) reaches the fork through the
+  // project context menu: the desktop shell reveals natively and the browser
+  // goes through /api/open-in-explorer, which the menu only offers after the
+  // availability probe answered. A failure stays visible inside the menu.
+  assert.match(source, /const revealProjectInFileManager = useCallback/);
+  assert.match(source, /isTauriDesktop\(\) \|\| fileManagerAvailability\?\.supported/);
+  assert.match(source, /revealItemInDirNative\(root\)/);
+  assert.match(source, /fetch\("\/api\/open-in-explorer", \{\s*method: "POST"/);
+  assert.match(source, /FILE_MANAGER_ERROR_KEYS\[data\.error \?\? ""\]/);
+  assert.match(source, /\{projectRevealError && \(/);
+  // The platform-adaptive label (Finder / Explorer / generic).
+  assert.match(source, /"sidebar\.openInFinder"/);
+  assert.match(source, /"sidebar\.openInExplorer"/);
+  assert.match(source, /"sidebar\.openInFileManager"/);
 });

@@ -14,6 +14,13 @@
   "engines": {
     "node": ">=22.19.0"
   },
+  "browserslist": [
+    "chrome 111",
+    "edge 111",
+    "firefox 111",
+    "safari 16.2",
+    "ios_saf 16.2"
+  ],
   "bin": {
     "pi-web": "bin/pi-web.js"
   },
@@ -29,16 +36,17 @@
   ],
   "scripts": {
     "dev": "next dev -H 127.0.0.1 -p 30141",
-    "dev:lan": "next dev -H 0.0.0.0 -p 30141",
+    "dev:lan": "node bin/network-exposure-warning.js 0.0.0.0 && next dev -H 0.0.0.0 -p 30141",
     "build": "next build --webpack",
     "start": "next start -H 127.0.0.1 -p 30141",
-    "start:lan": "next start -H 0.0.0.0 -p 30141",
+    "start:lan": "node bin/network-exposure-warning.js 0.0.0.0 && next start -H 0.0.0.0 -p 30141",
     "desktop:dev": "node scripts/desktop-dev.mjs --config src-tauri/tauri.dev.conf.json",
     "desktop:prepare": "node scripts/prepare-desktop.mjs",
     "desktop:build": "npm run desktop:prepare && tauri build",
     "release:manifest": "node scripts/write-component-versions.mjs",
     "release:verify": "node scripts/verify-release-components.mjs",
     "drift": "node scripts/measure-fork-drift.mjs",
+    "desktop:verify": "node scripts/verify-packaged-codemode.mjs",
     "test:release-tools": "node --test scripts/*.test.mjs",
     "test": "node --experimental-strip-types --test 'app/**/*.test.mjs' 'lib/**/*.test.mjs' 'scripts/**/*.test.mjs' 'components/**/*.test.mjs' 'hooks/**/*.test.mjs' 'public/**/*.test.mjs'",
     "lint": "eslint . && npm run check:branding",
@@ -49,10 +57,10 @@
     "test:e2e": "node e2e/run.mjs"
   },
   "dependencies": {
-    "@earendil-works/pi-agent-core": "0.87.1",
-    "@earendil-works/pi-ai": "0.87.1",
-    "@earendil-works/pi-coding-agent": "0.87.1",
-    "@earendil-works/pi-tui": "0.87.1",
+    "@earendil-works/pi-agent-core": "^1.0.2",
+    "@earendil-works/pi-ai": "^1.0.2",
+    "@earendil-works/pi-coding-agent": "^1.0.2",
+    "@earendil-works/pi-tui": "^1.0.2",
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-clipboard-manager": "^2.3.2",
     "@tauri-apps/plugin-dialog": "^2.7.2",
@@ -61,7 +69,7 @@
     "@tauri-apps/plugin-updater": "^2.10.1",
     "@xterm/addon-fit": "0.11.0",
     "@xterm/xterm": "6.0.0",
-    "js-yaml": "^5.2.3",
+    "js-yaml": "^5.4.2",
     "next": "16.3.6",
     "node-pty": "1.2.0-beta.15",
     "proper-lockfile": "4.1.2",
@@ -75,6 +83,7 @@
     "@tailwindcss/postcss": "^4.2.2",
     "@tauri-apps/cli": "^2.10.0",
     "@types/js-yaml": "^4.0.9",
+    "@types/mdast": "^4.0.4",
     "@types/node": "^25",
     "@types/proper-lockfile": "4.1.4",
     "@types/react": "^19",

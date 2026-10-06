@@ -117,7 +117,7 @@ function readEntryId(line: string): string | undefined {
 /**
  * Newest entry id recorded on disk, read from a bounded tail so large sessions
  * stay cheap. Undefined when the file is absent (a wrapper that has not flushed
- * its first assistant turn yet) or unreadable.
+ * its first message yet) or unreadable.
  *
  * Used only on ?force=1 session reads (mount / page refresh). An id the
  * in-memory wrapper never saw means another pi process appended to the file.
@@ -762,6 +762,7 @@ export function buildSessionContext(
  */
 function countsTowardTail(entry: SessionEntry): boolean {
   if (entry.type === "compaction") return true;
+  if (entry.type === "branch_summary") return Boolean((entry as { summary?: string }).summary);
   if (entry.type !== "message") return false;
   const role = (entry as { message?: { role?: string } }).message?.role;
   return role === "user" || role === "assistant";
@@ -966,9 +967,14 @@ function entryToUiMessage(
       };
     case "branch_summary":
       if (!entry.summary) return null;
+      // A divider like compaction, not a user bubble: it was never typed, so it must not
+      // offer Edit / Fork or be counted as the user's turn.
       return {
-        role: "user",
-        content: `*The conversation briefly explored another branch and returned with this summary:*\n\n${entry.summary}`,
+        role: "custom",
+        customType: "branch_summary",
+        content: entry.summary,
+        display: true,
+        details: entry.details,
         timestamp: parseEntryTimestamp(entry.timestamp),
       };
     case "custom_message":

@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
-import type { BranchPreview, SessionEntry, SessionTreeNode } from "@/lib/types";
+import type { BranchPreview, LeafChangeOptions, SessionEntry, SessionTreeNode } from "@/lib/types";
 import { useI18n } from "@/hooks/useI18n";
 
 interface Props {
   tree: SessionTreeNode[];
   activeLeafId: string | null;
-  onLeafChange: (leafId: string | null) => void;
+  onLeafChange: (leafId: string | null, options?: LeafChangeOptions) => void;
   /** When true, renders as a compact inline button for embedding in a top bar */
   inline?: boolean;
   /** When inline, use this ref's bounding rect to size/position the dropdown */
@@ -28,6 +28,8 @@ interface Props {
   reserveRight?: number;
   /** Keep the inline dropdown mounted while another control supplies its trigger */
   hideInlineButton?: boolean;
+  /** The session is running: the tree stays readable but branches cannot be switched */
+  locked?: boolean;
 }
 
 // Find the visible entry IDs on the path from root to activeLeafId.
@@ -128,10 +130,57 @@ interface TreeNodeProps {
   depth: number;
   isLast: boolean;
   parentLines: boolean[]; // whether ancestor at each depth has more siblings after
-  onSelect: (id: string) => void;
+  /** Absent while switching is locked */
+  onSelect?: (id: string) => void;
+  /** Absent while switching is locked */
+  summary?: BranchSummaryControls;
 }
 
-function TreeNodeView({ node, activePathIds, depth, isLast, parentLines, onSelect }: TreeNodeProps) {
+/**
+ * pi can summarize the branch being left onto the one entered ("Summarize branch?" in the
+ * TUI's /tree). A plain click stays a plain switch, since rows are also how branches are
+ * browsed; rows of other branches offer the summarized switch as a separate action.
+ */
+interface BranchSummaryControls {
+  targetId: string | null;
+  open: (id: string) => void;
+  confirm: (id: string, customInstructions: string) => void;
+  cancel: () => void;
+}
+
+function BranchSummaryForm({ onConfirm, onCancel }: { onConfirm: (customInstructions: string) => void; onCancel: () => void }) {
+  const { t } = useI18n();
+  const [instructions, setInstructions] = useState("");
+  return (
+    <form
+      className="branch-summary-form"
+      onClick={(event) => event.stopPropagation()}
+      onSubmit={(event) => {
+        event.preventDefault();
+        onConfirm(instructions);
+      }}
+    >
+      <input
+        autoFocus
+        value={instructions}
+        onChange={(event) => setInstructions(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && !event.nativeEvent.isComposing) {
+            event.stopPropagation();
+            onCancel();
+          }
+        }}
+        placeholder={t("i18n.branchSummaryInstructionsPlaceholder")}
+        aria-label={t("i18n.branchSummaryInstructionsPlaceholder")}
+      />
+      <button type="submit" className="branch-summary-confirm">{t("i18n.branchSummarizeAction")}</button>
+      <button type="button" onClick={onCancel}>{t("chat.cancel")}</button>
+    </form>
+  );
+}
+
+function TreeNodeView({ node, activePathIds, depth, isLast, parentLines, onSelect, summary }: TreeNodeProps) {
+  const { t } = useI18n();
   const { node: rep, skipped, branchPreview, labelEntry } = compressChain(node);
   const isActive = activePathIds.has(rep.entry.id);
   const isOnPath = activePathIds.has(node.entry.id) || activePathIds.has(rep.entry.id);
@@ -146,13 +195,14 @@ function TreeNodeView({ node, activePathIds, depth, isLast, parentLines, onSelec
     <div>
       {/* This node row */}
       <div
+        className="branch-tree-row"
         style={{
           display: "flex",
           alignItems: "center",
           height: 24,
-          cursor: "pointer",
+          cursor: onSelect ? "pointer" : "default",
         }}
-        onClick={() => onSelect(rep.entry.id)}
+        onClick={onSelect ? () => onSelect(rep.entry.id) : undefined}
       >
         {/* Indent guide lines */}
         {parentLines.map((hasLine, i) => (
@@ -242,7 +292,26 @@ function TreeNodeView({ node, activePathIds, depth, isLast, parentLines, onSelec
         }}>
           {label}
         </span>
+        {summary && !isOnPath && summary.targetId !== rep.entry.id && (
+          <button
+            type="button"
+            className="branch-summary-action"
+            title={t("i18n.branchSummarizeHint")}
+            onClick={(event) => {
+              event.stopPropagation();
+              summary.open(rep.entry.id);
+            }}
+          >
+            {t("i18n.branchSummarizeAction")}
+          </button>
+        )}
       </div>
+      {summary?.targetId === rep.entry.id && (
+        <BranchSummaryForm
+          onConfirm={(instructions) => summary.confirm(rep.entry.id, instructions)}
+          onCancel={summary.cancel}
+        />
+      )}
 
       {/* Children */}
       {rep.children.map((child, idx) => (
@@ -254,13 +323,14 @@ function TreeNodeView({ node, activePathIds, depth, isLast, parentLines, onSelec
           isLast={idx === rep.children.length - 1}
           parentLines={[...parentLines, !isLast]}
           onSelect={onSelect}
+          summary={summary}
         />
       ))}
     </div>
   );
 }
 
-export function BranchNavigator({ tree, activeLeafId, onLeafChange, inline, containerRef, open: openProp, onToggle, hasSession, compact, hideInlineButton, reserveRight = 0 }: Props) {
+export function BranchNavigator({ tree, activeLeafId, onLeafChange, inline, containerRef, open: openProp, onToggle, hasSession, compact, hideInlineButton, reserveRight = 0, locked = false }: Props) {
   const { t } = useI18n();
   const [openInternal, setOpenInternal] = useState(false);
   const open = openProp !== undefined ? openProp : openInternal;
@@ -294,6 +364,23 @@ export function BranchNavigator({ tree, activeLeafId, onLeafChange, inline, cont
   const handleSelect = useCallback((id: string) => {
     onLeafChange(id);
   }, [onLeafChange]);
+  const selectBranch = locked ? undefined : handleSelect;
+  const [summaryTargetId, setSummaryTargetId] = useState<string | null>(null);
+  const summaryControls = useMemo<BranchSummaryControls | undefined>(() => locked ? undefined : {
+    targetId: summaryTargetId,
+    open: setSummaryTargetId,
+    confirm: (id, customInstructions) => {
+      setSummaryTargetId(null);
+      onLeafChange(id, { summarize: true, customInstructions: customInstructions.trim() || undefined });
+    },
+    cancel: () => setSummaryTargetId(null),
+  }, [locked, onLeafChange, summaryTargetId]);
+
+  const lockedNotice = locked && (
+    <div style={{ padding: "2px 0 4px", fontSize: 11, color: "var(--text-dim)", fontStyle: "italic" }}>
+      {t("i18n.branchesLockedWhileRunning")}
+    </div>
+  );
 
   const noBranchReason = !hasSession
     ? t("i18n.noActiveSession")
@@ -362,6 +449,7 @@ export function BranchNavigator({ tree, activeLeafId, onLeafChange, inline, cont
           }}>
             {hasContent ? (
               <div style={{ padding: "4px 12px 8px 12px", maxHeight: 260, overflowY: "auto" }}>
+                {lockedNotice}
                 {topLevel.map((child, idx) => (
                   <TreeNodeView
                     key={child.entry.id}
@@ -370,7 +458,8 @@ export function BranchNavigator({ tree, activeLeafId, onLeafChange, inline, cont
                     depth={0}
                     isLast={idx === topLevel.length - 1}
                     parentLines={[]}
-                    onSelect={handleSelect}
+                    onSelect={selectBranch}
+                    summary={summaryControls}
                   />
                 ))}
               </div>
@@ -423,6 +512,7 @@ export function BranchNavigator({ tree, activeLeafId, onLeafChange, inline, cont
         }}>
           {hasContent ? (
             <div style={{ padding: "4px 12px 8px 12px", maxHeight: 260, overflowY: "auto" }}>
+              {lockedNotice}
               {topLevel.map((child, idx) => (
                 <TreeNodeView
                   key={child.entry.id}
@@ -431,7 +521,8 @@ export function BranchNavigator({ tree, activeLeafId, onLeafChange, inline, cont
                   depth={0}
                   isLast={idx === topLevel.length - 1}
                   parentLines={[]}
-                  onSelect={handleSelect}
+                  onSelect={selectBranch}
+                  summary={summaryControls}
                 />
               ))}
             </div>
