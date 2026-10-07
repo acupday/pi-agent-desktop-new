@@ -4,6 +4,8 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { completeSimple, type AssistantMessage } from "@earendil-works/pi-ai/compat";
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
+import { resolveProviderDraftForAuth } from "@/lib/models-config-redaction";
+import { ModelsConfigReadError, readModelsConfig } from "@/lib/models-config-store";
 import { hasJsonContentType, isApiRequestAllowed } from "@/lib/request-security";
 
 export const dynamic = "force-dynamic";
@@ -48,12 +50,23 @@ export async function POST(req: Request) {
     const modelId = typeof body.model.id === "string" ? body.model.id.trim() : "";
     if (!modelId) return NextResponse.json({ ok: false, error: "Model ID is required" }, { status: 400 });
 
+    let existingProviders: Record<string, Record<string, unknown>> = {};
+    try {
+      const stored = readModelsConfig();
+      if (stored.providers && typeof stored.providers === "object") {
+        existingProviders = stored.providers as Record<string, Record<string, unknown>>;
+      }
+    } catch (error) {
+      if (!(error instanceof ModelsConfigReadError)) throw error;
+    }
+    const provider = resolveProviderDraftForAuth(providerName, body.provider, existingProviders);
+
     tempDir = mkdtempSync(join(tmpdir(), "pi-web-model-test-"));
     const modelsPath = join(tempDir, "models.json");
     writeFileSync(modelsPath, JSON.stringify({
       providers: {
         [providerName]: {
-          ...body.provider,
+          ...provider,
           models: [{ ...body.model, id: modelId }],
         },
       },

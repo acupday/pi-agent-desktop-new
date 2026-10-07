@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { ModelsConfigReadError, readModelsConfig, writeModelsConfig } from "@/lib/models-config-store";
-import { mergeStoredLiteralApiKeys, redactModelsJson } from "@/lib/models-config-redaction";
+import {
+  mergeStoredLiteralApiKeys,
+  redactModelsJson,
+  stripClientOnlyProviderFields,
+} from "@/lib/models-config-redaction";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +32,9 @@ export async function PUT(req: Request) {
     // the user edits unrelated settings. An explicit apiKey (even "") wins.
     writeModelsConfig({
       ...body,
-      providers: mergeStoredLiteralApiKeys(incomingProviders, existingProviders),
+      providers: stripClientOnlyProviderFields(
+        mergeStoredLiteralApiKeys(incomingProviders, existingProviders),
+      ),
     });
     return NextResponse.json({ success: true });
   } catch (error) {

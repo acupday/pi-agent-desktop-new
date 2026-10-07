@@ -106,6 +106,8 @@ interface ProviderEntry {
   baseUrl?: string;
   api?: string;
   apiKey?: string;
+  /** Set by GET after redacting a stored literal key; never written to disk. */
+  apiKeyConfigured?: boolean;
   headers?: Record<string, string>;
   compat?: Record<string, unknown>;
   models?: ModelEntry[];
@@ -437,10 +439,18 @@ function ProviderDetail({ name, editingName, provider, onChange, onEditingNameCh
       </Field>
 
       <Field label="API Key">
-        <SecretTextInput value={provider.apiKey ?? ""} onChange={(v) => set("apiKey", v || undefined)}
-          placeholder="ENV_VAR_NAME, !shell-command, or literal key" mono />
+        <SecretTextInput
+          value={provider.apiKey ?? ""}
+          onChange={(v) => set("apiKey", v || undefined)}
+          placeholder={provider.apiKeyConfigured && !provider.apiKey
+            ? t("models.apiKeyStoredPlaceholder")
+            : t("models.apiKeyPlaceholder")}
+          mono
+        />
         <span style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 2 }}>
-          Prefix with <code style={{ fontFamily: "var(--font-mono)" }}>!</code> to run a shell command, or use an env var name
+          {provider.apiKeyConfigured && !provider.apiKey
+            ? t("models.apiKeyStoredHint")
+            : t("models.apiKeyHint")}
         </span>
       </Field>
 

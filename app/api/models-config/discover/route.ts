@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { resolveModelDiscoveryAuth } from "@/lib/model-discovery-auth";
 import { buildModelsListUrl, nextModelsPageUrl, parseDiscoveredModels } from "@/lib/model-discovery";
+import { resolveProviderDraftForAuth } from "@/lib/models-config-redaction";
+import { ModelsConfigReadError, readModelsConfig } from "@/lib/models-config-store";
 import { formatNetworkError } from "@/lib/network-error";
 
 export const dynamic = "force-dynamic";
@@ -39,19 +41,30 @@ export async function POST(req: Request) {
     if (!providerName) return NextResponse.json({ error: "providerName is required" }, { status: 400 });
     if (!isRecord(body.provider)) return NextResponse.json({ error: "provider is required" }, { status: 400 });
 
-    const configuredBaseUrl = typeof body.provider.baseUrl === "string" ? body.provider.baseUrl.trim() : "";
-    const configuredApi = typeof body.provider.api === "string" && body.provider.api ? body.provider.api : "";
+    let existingProviders: Record<string, Record<string, unknown>> = {};
+    try {
+      const stored = readModelsConfig();
+      if (stored.providers && typeof stored.providers === "object") {
+        existingProviders = stored.providers as Record<string, Record<string, unknown>>;
+      }
+    } catch (error) {
+      if (!(error instanceof ModelsConfigReadError)) throw error;
+    }
+    const provider = resolveProviderDraftForAuth(providerName, body.provider, existingProviders);
+
+    const configuredBaseUrl = typeof provider.baseUrl === "string" ? provider.baseUrl.trim() : "";
+    const configuredApi = typeof provider.api === "string" && provider.api ? provider.api : "";
 
     let auth: Awaited<ReturnType<typeof resolveModelDiscoveryAuth>>;
     try {
-      auth = await resolveModelDiscoveryAuth(providerName, body.provider);
+      auth = await resolveModelDiscoveryAuth(providerName, provider);
     } catch (error) {
       // Without a configured Base URL, pi's catalog was the only other source of
       // one; for a custom provider it fails with an error about the placeholder model.
       if (!configuredBaseUrl) return NextResponse.json({ error: "Base URL is required" }, { status: 400 });
       throw error;
     }
-    if (typeof body.provider.apiKey === "string" && body.provider.apiKey.trim() && !auth.apiKey) {
+    if (typeof provider.apiKey === "string" && provider.apiKey.trim() && !auth.apiKey) {
       return NextResponse.json({ error: `No API key found for "${providerName}"` }, { status: 400 });
     }
 

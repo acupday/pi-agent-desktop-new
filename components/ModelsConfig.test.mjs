@@ -51,6 +51,17 @@ test("custom model config exposes provider-level request headers", () => {
   assert.match(providerDetail, /set\("headers", headers\)/);
 });
 
+test("a stored literal API key is hinted without being shown again", () => {
+  assert.match(source, /apiKeyConfigured\?: boolean/);
+  const providerDetail = source.slice(
+    source.indexOf("function ProviderDetail"),
+    source.indexOf("// ── ThinkingLevelMap editor"),
+  );
+  assert.match(providerDetail, /provider\.apiKeyConfigured && !provider\.apiKey/);
+  assert.match(providerDetail, /t\("models\.apiKeyStoredPlaceholder"\)/);
+  assert.match(providerDetail, /t\("models\.apiKeyStoredHint"\)/);
+});
+
 test("custom model config exposes model headers and supportsDeveloperRole compat flag", () => {
   // Model-level headers editor, wired to the model entry.
   assert.match(source, /headers=\{model\.headers\}/);
