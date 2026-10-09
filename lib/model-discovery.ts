@@ -18,7 +18,11 @@ function modelFromValue(value: unknown): DiscoveredModel | null {
   }
   if (!isRecord(value)) return null;
 
-  const rawId = cleanString(value.id) ?? cleanString(value.model) ?? cleanString(value.name);
+  const rawId = cleanString(value.id)
+    ?? cleanString(value.model)
+    ?? cleanString(value.model_id)
+    ?? cleanString(value.modelId)
+    ?? cleanString(value.name);
   if (!rawId) return null;
   const id = rawId.startsWith("models/") ? rawId.slice("models/".length) : rawId;
   if (!id) return null;
@@ -28,24 +32,60 @@ function modelFromValue(value: unknown): DiscoveredModel | null {
   return name && name !== id ? { id, name } : { id };
 }
 
-const LIST_KEYS = ["data", "models", "results", "items"] as const;
+// OpenAI / Google / Anthropic plus common intranet-gateway wrappers.
+const LIST_KEYS = ["data", "models", "results", "items", "list", "result", "rows"] as const;
 
-function listFromResponse(value: unknown): unknown[] {
+function looksLikeModelContainer(value: unknown): boolean {
+  return isRecord(value) && LIST_KEYS.some((key) => key in value);
+}
+
+function listFromRecordValues(record: Record<string, unknown>): unknown[] {
+  const values = Object.values(record);
+  // id -> model map (OpenRouter-style / some gateways)
+  if (values.some((entry) => typeof entry === "string" || modelFromValue(entry))) {
+    return values;
+  }
+  return [];
+}
+
+function listFromResponse(value: unknown, depth = 0): unknown[] {
+  if (depth > 4) return [];
   if (Array.isArray(value)) {
     // A raw model array passes through; an array of page payloads is flattened.
     return value.flatMap((item) =>
-      isRecord(item) && LIST_KEYS.some((key) => Array.isArray(item[key]) || isRecord(item[key]))
-        ? listFromResponse(item)
-        : [item],
+      looksLikeModelContainer(item) ? listFromResponse(item, depth + 1) : [item],
     );
   }
   if (!isRecord(value)) return [];
   for (const key of LIST_KEYS) {
+    if (!(key in value)) continue;
     const candidate = value[key];
     if (Array.isArray(candidate)) return candidate;
-    if (isRecord(candidate)) return Object.values(candidate);
+    if (isRecord(candidate)) {
+      // Nested wrappers: { data: { list: [...] } }, { result: { data: [...] } }
+      const nested = listFromResponse(candidate, depth + 1);
+      if (nested.length > 0) return nested;
+      const asMap = listFromRecordValues(candidate);
+      if (asMap.length > 0) return asMap;
+    }
   }
   return [];
+}
+
+/** Short, safe summary when discovery gets JSON but cannot extract models. */
+export function describeUnparsedModelsResponse(value: unknown): string {
+  if (value === null || value === undefined) return "empty body";
+  if (typeof value !== "object") return `JSON type ${typeof value}`;
+  if (Array.isArray(value)) return `top-level array length ${value.length}`;
+  const keys = Object.keys(value).slice(0, 16);
+  let preview = "";
+  try {
+    preview = JSON.stringify(value);
+  } catch {
+    preview = "[unserializable]";
+  }
+  if (preview.length > 280) preview = `${preview.slice(0, 280)}…`;
+  return `keys [${keys.join(", ") || "(none)"}]; ${preview}`;
 }
 
 export function parseDiscoveredModels(value: unknown): DiscoveredModel[] {

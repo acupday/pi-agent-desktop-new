@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { resolveModelDiscoveryAuth } from "@/lib/model-discovery-auth";
-import { buildModelsListUrl, nextModelsPageUrl, parseDiscoveredModels } from "@/lib/model-discovery";
+import {
+  buildModelsListUrl,
+  describeUnparsedModelsResponse,
+  nextModelsPageUrl,
+  parseDiscoveredModels,
+} from "@/lib/model-discovery";
 import { resolveProviderDraftForAuth } from "@/lib/models-config-redaction";
 import { ModelsConfigReadError, readModelsConfig } from "@/lib/models-config-store";
 import { formatNetworkError } from "@/lib/network-error";
@@ -110,9 +115,12 @@ export async function POST(req: Request) {
       pageUrl = nextModelsPageUrl(pageUrl, api, payload);
     }
 
-    const models = parseDiscoveredModels(collected.length === 1 ? collected[0] : collected);
+    const payload = collected.length === 1 ? collected[0] : collected;
+    const models = parseDiscoveredModels(payload);
     if (models.length === 0) {
-      return NextResponse.json({ error: "No models found in the upstream response" }, { status: 502 });
+      return NextResponse.json({
+        error: `No models found in the upstream response (${endpoint.toString()}). ${describeUnparsedModelsResponse(payload)}`,
+      }, { status: 502 });
     }
 
     return NextResponse.json({ models, endpoint: endpoint.toString() });
