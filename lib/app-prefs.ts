@@ -16,6 +16,8 @@ export const APP_PREF_KEYS = {
   archivedProjects: "pi-web:archived-projects",
   /** Sidebar display aliases for project roots: Record<projectRoot, alias>. */
   projectAliases: "pi-web:project-aliases",
+  /** Project roots whose session list is folded in the sidebar tree. */
+  collapsedProjects: "pi-web:collapsed-projects",
   updateSnooze: "pi-web:update-snooze",
   closeQuits: "pi-desktop-close-quits",
   notifyOnComplete: "pi-desktop-notify-on-complete",

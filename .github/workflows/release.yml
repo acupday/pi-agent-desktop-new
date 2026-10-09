@@ -103,39 +103,41 @@ jobs:
           tagName: v__VERSION__
           releaseName: pi-agent-desktop v__VERSION__
           releaseBody: |
-            ## Pi Agent Desktop 0.5.1
+            ## Pi Agent Desktop 0.6.1
 
-            A fix release for 0.5.0. The main change: **Code mode did not work in the installed app** and now does.
+            This release gives the desktop app a more native look and feel on macOS, and tidies the composer.
 
-            ### Fixes
+            ### New
 
-            - Code mode: the packaged app was missing the sandbox's runtime files, so every session reported "Cannot find module .../quickjs-wasi/quickjs.wasm" and Code mode (and any MCP tool reachable only through it) was switched off. The sandbox files are now shipped with the app.
-            - Composer: after a run finished, the send button could do nothing when the draft was unchanged, because it still treated the session as streaming.
-            - Packaging: extension loading and the Code mode sandbox files are now placed wherever the dependency tree puts them, instead of at one fixed path.
+            - Right-click a file Pi wrote, a link to a local file, or a file name in inline code to **Open**, **Open With** (macOS), **Reveal in Finder / Explorer** or **Copy Path**.
+            - macOS: a translucent sidebar that blends with the desktop, native menus, and desktop-style cursor and text-selection behavior.
 
-            ### Updates
+            ### Improved
 
-            - Bundled pi is now 1.0.2, which also clears a known denial-of-service advisory in a dependency.
+            - A refined type scale, hairline borders and native-feeling hover motion across the app.
+            - The session controls (model, thinking level, tools) now sit below the input card instead of crowding it.
+            - The new-session screen no longer shows the update chip; update status stays in Settings › General.
 
-            Bundled components: pi 1.0.2, pi-web 0.10.0.
+            Bundled components: pi 1.1.0, pi-web 0.10.0.
 
             ---
 
-            ## Pi Agent Desktop 0.5.1
+            ## Pi Agent Desktop 0.6.1
 
-            这是 0.5.0 的修复版本。最主要的变化：**已安装的 App 里 Code mode 无法使用，现已修复。**
+            这个版本让桌面 App 在 macOS 上更有原生质感，并整理了输入区。
 
-            ### 修复
+            ### 新增
 
-            - Code mode：打包后的 App 缺少沙箱运行所需的文件，每个会话都会提示 "Cannot find module .../quickjs-wasi/quickjs.wasm"，Code mode（以及只能通过它调用的 MCP 工具）因此被关闭。现在这些文件已随 App 一起发布。
-            - 输入框：一次运行结束后，如果草稿没有变化，发送按钮可能没有反应，因为它仍把会话当作正在流式输出。
-            - 打包：扩展加载和 Code mode 沙箱所需的文件现在会放到依赖树实际所在的位置，不再固定写死一个路径。
+            - 在 Pi 写出的文件、指向本地文件的链接，或行内代码里的文件名上点右键，可以**打开**、**用其他应用打开**（macOS）、**在 Finder / 资源管理器中显示**或**复制路径**。
+            - macOS：侧边栏改为半透明并与桌面融合，菜单改用原生菜单，光标和文本选择行为也更接近桌面应用。
 
-            ### 更新
+            ### 改进
 
-            - 内置 pi 升级到 1.0.2，同时清除了一个依赖中已知的拒绝服务公告。
+            - 全应用统一了字号层级、细线边框和更自然的悬停动效。
+            - 会话控制（模型、思考强度、工具）移到输入卡片下方，不再挤在输入框里。
+            - 新会话页面不再显示更新提示；更新状态保留在 设置 › 通用。
 
-            内置组件版本：pi 1.0.2、pi-web 0.10.0。
+            内置组件版本：pi 1.1.0、pi-web 0.10.0。
           releaseDraft: true
           prerelease: false
           uploadUpdaterJson: true

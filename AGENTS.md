@@ -33,6 +33,8 @@ Typecheck: `node_modules/.bin/tsc --noEmit` · Lint: `npm run lint`
   `PI_WEB_DESKTOP_BUILD=1 node_modules/next/dist/bin/next build --webpack` then
   `E2E_SERVER_MODE=start PI_WEB_DESKTOP_BUILD=1 node e2e/run.mjs` (`next.config.ts` swaps
   `distDir` to `.next-desktop`, which is gitignored).
+- **`next dev` rewrites `AGENTS.md`**: it appends a "This is NOT the Next.js you know" block
+  to this file on every start. Run `git checkout -- AGENTS.md` before committing; it is not part of the work.
 
 ---
 
@@ -78,6 +80,7 @@ app/api/
   skills/route.ts                 GET/PATCH loaded skills and disable-model-invocation
   skills/install/route.ts         POST install skills through npx skills add
   skills/search/route.ts          GET/POST skills.sh search
+  scheduled-tasks/**              GET/POST tasks, PATCH/DELETE [id], POST [id]/run, GET [id]/runs, POST run seen, POST preview, GET events (SSE)
   worktrees/route.ts              GET list / POST create / PUT switch branch / DELETE git worktrees
   worktrees/fetch/route.ts        POST git fetch --prune + fresh branch lists
   desktop/read-images/route.ts    POST read natively-picked images into attachment payloads
@@ -98,6 +101,7 @@ lib/
   npx.ts               npx runner used by skill install
   pi-types.ts          local structural types for pi SDK objects
   rpc-manager.ts      AgentSessionWrapper + registry + startRpcSession
+  scheduled-tasks/    scheduler, runner, cron, store, run index for scheduled tasks (see docs/agents/scheduled-tasks.md)
   session-reader.ts   SessionManager wrappers + path cache + buildSessionContext adapter
   tool-presets.ts     PRESET_NONE/DEFAULT/FULL + getPresetFromTools()
   types.ts            shared TypeScript types
@@ -118,6 +122,7 @@ components/
   AgentsConfig.tsx    built-in subagent toggle + agent profile editor
   PluginsConfig.tsx   modal for installed package plugins
   SkillsConfig.tsx    modal for loaded/search/installable skills
+  scheduled/          Scheduled page (list, detail, editor, run history) and its sidebar row
   SettingsPanel.tsx   settings dialog; its General tab hosts the app intro, Version & Updates and the desktop-only switches
   AppUpdatesSection.tsx  Version & Updates block at the top of General
   desktop/DesktopAppSection.tsx  window/tray prefs; renders nothing outside Tauri
@@ -131,6 +136,7 @@ hooks/
   useAudio.ts              completion sound + AudioContext unlock
   useDragDrop.ts           shared drag/drop state
   useIsMobile.ts           responsive breakpoint
+  useScheduledTasks.ts     shared store + SSE for scheduled tasks
   useKeyboardShortcuts.ts  Esc stops the running agent unless a field or nearer handler took it; Ctrl+Alt+N
   useTheme.ts              theme state
 ```
@@ -154,6 +160,7 @@ hooks/
 - [files-and-access.md](docs/agents/files-and-access.md): worktrees and project grouping, the file access allow-list (the `/api/files` security boundary), file tree visibility, web password throttling. Files: `app/api/files/**`, `app/api/cwd/**`, `app/api/worktrees/**`, `app/api/file-index/**`, `app/api/web-auth/**`, `proxy.ts`, `lib/path-security.ts`, `lib/file-access.ts`, `lib/linked-directory.ts`, `lib/session-file-references*.ts`, `lib/file-tree-visibility.ts`, `lib/worktree.ts`, `lib/paths.ts`, `lib/auth-throttle.ts`, `components/FileExplorer.tsx`.
 - [settings-ui.md](docs/agents/settings-ui.md): Plugins and Skills routes, sidebar group switches, the shared `SettingsUi` blocks every settings panel and add pane uses. Files: `app/api/plugins/**`, `app/api/skills/**`, `components/SettingsUi.tsx`, `components/settings-ui-helpers.ts`, `components/SkillsConfig.tsx`, `components/PluginsConfig.tsx`; also before adding a settings section or add pane.
 - [subagents.md](docs/agents/subagents.md): the built-in subagent setting, profiles and their files, run status, completion notifications. Files: `lib/subagent*.ts`, `app/api/subagents/**`, `components/AgentsConfig.tsx`.
+- [scheduled-tasks.md](docs/agents/scheduled-tasks.md): scheduled tasks (the Scheduled page): server-side scheduler and its lease, catch-up and overlap rules, read-only default, the run index that hides runs from the project tree, why shared state is on `globalThis`. Files: `lib/scheduled-tasks/**`, `app/api/scheduled-tasks/**`, `instrumentation-node.ts`, `hooks/useScheduledTasks.ts`, `components/scheduled/**`, the Scheduled row in `components/SessionSidebar.tsx`, the page overlay in `components/AppShell.tsx`.
 - [client-platform.md](docs/agents/client-platform.md): mobile software keyboard and viewport height, completion sound. Files: `hooks/useViewportHeight.ts`, `hooks/useAudio.ts`, the keyboard-open CSS.
 
 ---
@@ -176,7 +183,7 @@ pi ≥ 0.99 catalogs classifier (Jev) and image models (OpenRouter image models 
 
 ### A new session has no file until pi flushes it
 Pi delays the first flush of a new session until an assistant message exists, so a run that just started is invisible to the disk scan behind `/api/sessions`. The sidebar list is derived purely from `.jsonl` files, so without help the session the user is actively watching cannot be found in the list until the turn ends.
-- `/api/sessions` merges live runtime rows via `getRpcSessionInfos()` (`lib/rpc-manager.ts`) with `mergeSessionLists()` (`lib/session-reader.ts`); the disk row wins for a persisted id, and a runtime row is suppressed until a user message exists (otherwise an untouched "new chat" runtime renders a row that later vanishes). `ensure_session`-created idle runtimes are also suppressed.
+- `/api/sessions` merges live runtime rows via `getRpcSessionInfos()` (`lib/rpc-manager.ts`) with `mergeSessionLists()` (`lib/session-reader.ts`); the disk row wins for a persisted id, and a runtime row is suppressed until a user message exists (otherwise an untouched "new chat" runtime renders a row that later vanishes). `ensure_session`-created idle runtimes are also suppressed. Once a prompt is submitted the wrapper's `pendingPromptPreview` (`getPendingPromptPreview()`) stands in for the missing user entry, so the row shows during MCP preparation and SDK preflight; `finishPrompt` clears it on completion, rejection and abort, and `notifyRunningChange()` dedupes on the running ids *and* `sessionListVersion` so every window refetches (see `docs/agents/sessions.md`).
 - Sessions created by subagents carry a `relation: { kind: "subagent", ... }`; sidebar rows for subagents are hidden and their state aggregates into the parent row (`listSessionFamilies` in `lib/session-family.ts`).
 - The disk scan behind the list is upstream's incremental scanner (`lib/session-list-scanner.ts`, `listSessionsIncremental`), fingerprinted per file on size+mtime in a persisted index (`globalThis.__piWebScanIndex`), so post-turn refreshes only re-parse the session that changed. `invalidateSessionListCache()` drops the merged list. Include symlinked project directories when touching the directory walk.
 - `GET /api/sessions` returns a `sessionListVersion` counter; the sidebar's SSE handler refetches the list (reusing the invalidated server cache, no forced scan) whenever the version moves — that is how edits from another window/process appear.
@@ -347,6 +354,7 @@ The pi CLI's `AgentSessionRuntime` replaces its single session in place; Pi Web 
 - Open a local path with `explorer.exe` on Windows, never `cmd.exe /C start` — Rust's argument escaping does not apply to the cmd parser, so a legal path like `C:\src\R&D\x.txt` would split into commands.
 - `lib/app-prefs.ts` owns every `localStorage` key. Theme is additionally mirrored into the app config dir via the `set_ui_theme` command, because the packaged server's port (and therefore the WebView origin, and therefore `localStorage`) can change between cold starts.
 - `tauri build` refuses to bundle when a `tauri-plugin-*` crate and its `@tauri-apps/plugin-*` npm package sit on different major/minor releases (same for `tauri` ↔ `@tauri-apps/api`), and it only says so six minutes into each platform of a signed release. The npm half moves on its own: a sync that runs a plain `npm install` re-resolves the caret ranges in `package.json` and leaves `src-tauri/Cargo.lock` behind — that is how v0.4.7 failed on all three runners with plugin-updater 2.12.0 against crate 2.10.1. Fix it in the lock (`cargo update -p tauri-plugin-updater --precise 2.12.0`), never by pinning the npm range down; `scripts/release-workflows.test.mjs` pins the pairing.
+- **File right-click menu** (`hooks/useFileContextMenu.ts`, `lib/file-context-menu.ts`): written-file chips, markdown links to local files and inline code that names an existing file open a native menu — Open (preview pane) / Open With ▸ / Reveal / Copy Path. Open With is macOS-only: `list_apps_for_file` asks Launch Services through `osascript -l JavaScript` (the path is an argument, never spliced into the script; nested bundles and `/Library/Caches/` copies are filtered), `open_path_with` runs `open -a` and only accepts an existing `.app` directory. Both are declared in `desktop-shell.toml` and listed in `desktop-dialog.json`. Inline code is only a guess, so the handler claims the right-click synchronously, then asks `GET /api/files/<path>?type=meta` (the allow-list applies) — a miss falls back to Copy / Select All, and rendering never stats anything. App lists are cached per extension for 5 minutes, and a lookup slower than 800ms opens the menu with just "Other…". In a browser the handler does nothing.
 - `lib/workspace-state.ts` restores the last session/cwd/file tabs on cold start. URL params always win over the persisted workspace.
 - `useDesktopConnection` polls `/api/home` only in Tauri to drive the offline banner. Its cleanup must stop in-flight probes from rescheduling, otherwise an unmount leaves a timer nobody owns and it pings forever.
 

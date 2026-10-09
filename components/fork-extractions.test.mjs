@@ -98,11 +98,12 @@ const FORK_FEATURES = [
     name: "ChatWindow new-session header",
     file: "components/ChatWindow.tsx",
     // Upstream renders an empty-state branding header (app icon + product name +
-    // version badge) directly above the composer. The fork strips it and keeps
-    // only the update chip, so merging upstream's ChatWindow.tsx would silently
-    // put the branding back — the absence check is the point of this entry.
-    markers: ["NewSessionUpdateLink"],
-    forbiddenMarkers: ["apple-touch-icon", "PRODUCT_NAME"],
+    // version badge) directly above the composer. The fork strips it, and later
+    // dropped the update chip that replaced it, so merging upstream's
+    // ChatWindow.tsx would silently put the header back — the absence checks
+    // are the point of this entry.
+    markers: ["isEmptyNew"],
+    forbiddenMarkers: ["apple-touch-icon", "PRODUCT_NAME", "NewSessionUpdateLink"],
   },
   {
     name: "sidebar header controls",
@@ -144,6 +145,33 @@ const FORK_FEATURES = [
     name: "TabBar chrome",
     file: "components/TabBar.tsx",
     markers: ["file-tab-bar", "file-tab-label", "file-tab-close"],
+  },
+  {
+    name: "Scheduled entry in the sidebar",
+    file: "components/SessionSidebar.tsx",
+    // The row under New Session, and the filter that keeps scheduled runs out of the
+    // project tree. Losing the filter would bury a user's own sessions under every
+    // run of an hourly task; losing the row leaves the feature unreachable.
+    // The completion notification skips scheduled sessions: they report through
+    // useScheduledRunNotifications instead, so losing the guard doubles every notification.
+    markers: ["ScheduledSidebarRow", "onOpenScheduled", 'relation?.kind !== "scheduled"', "isScheduledRunSession"],
+  },
+  {
+    name: "Scheduled page in AppShell",
+    file: "components/AppShell.tsx",
+    // The page covers the chat without unmounting it. Picking a session or starting a
+    // new one must close it, and the cold-start restore must not.
+    markers: ["ScheduledView", "scheduledOpen", "scheduledOpenRef", "handleOpenScheduled", "setScheduledOpen(false)", "useScheduledRunNotifications"],
+  },
+  {
+    name: "scheduled runs are tagged in the session list",
+    file: "app/api/sessions/route.ts",
+    markers: ["attachScheduledRelations"],
+  },
+  {
+    name: "scheduler starts with the server",
+    file: "instrumentation-node.ts",
+    markers: ["startScheduler"],
   },
   {
     name: "native theme layer",
