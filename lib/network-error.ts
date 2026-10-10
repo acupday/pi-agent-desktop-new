@@ -31,6 +31,15 @@ function collectCauses(error: unknown): unknown[] {
   return chain;
 }
 
+/** True when the error text names a private / link-local host (LAN intranet). */
+function mentionsPrivateLanHost(message: string): boolean {
+  return (
+    /\b(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})\b/.test(message)
+    || /\b(?:\[?fe80:|\[?fd[0-9a-f]{0,2}:)/i.test(message)
+    || /\.local(?::|\b)/i.test(message)
+  );
+}
+
 function hintForCode(code: string | undefined, message: string): string | undefined {
   const lower = message.toLowerCase();
   if (
@@ -52,6 +61,12 @@ function hintForCode(code: string | undefined, message: string): string | undefi
     return "Connection refused. Check that the relay is reachable from this machine.";
   }
   if (code === "ENETUNREACH" || code === "EHOSTUNREACH") {
+    // Packaged macOS builds need Local Network privacy for RFC1918 hosts;
+    // without NSLocalNetworkUsageDescription the kernel returns EHOSTUNREACH
+    // even when Terminal/curl can reach the same address.
+    if (process.platform === "darwin" && mentionsPrivateLanHost(message)) {
+      return "Network unreachable. On macOS, allow Pi Agent under System Settings → Privacy & Security → Local Network, then retry.";
+    }
     return "Network unreachable. If this is an IPv6 address, try an IPv4 Base URL or configure HTTP_PROXY/HTTPS_PROXY.";
   }
   if (code === "ETIMEDOUT" || code === "UND_ERR_CONNECT_TIMEOUT") {

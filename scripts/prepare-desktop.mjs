@@ -205,6 +205,8 @@ async function bundleNodeRuntime() {
     // Info.plist uses the parent CFBundleIdentifier (com.abcwyc.pi-agent) so
     // macOS TCC SystemPolicyAppData grants persist across launches — a distinct
     // helper id re-prompts "access data from other apps" every cold start.
+    // The same plist must declare NSLocalNetworkUsageDescription or Sequoia+
+    // silently EHOSTUNREACH's intranet Base URLs (model relays on 192.168/10/…).
     const contentsDir = join(serverHelperDir, "Contents");
     binaryPath = join(contentsDir, "MacOS", "node");
     await mkdir(dirname(binaryPath), { recursive: true });

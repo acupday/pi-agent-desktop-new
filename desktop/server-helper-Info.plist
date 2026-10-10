@@ -30,5 +30,13 @@
     <true/>
     <key>LSMinimumSystemVersion</key>
     <string>11.0</string>
+    <!--
+      macOS Sequoia+ gates RFC1918 / link-local destinations behind Local
+      Network privacy. Without this key the OS never prompts and Node's
+      connect() to intranet model relays fails instantly with EHOSTUNREACH.
+      Same CFBundleIdentifier as the parent so one grant covers both.
+    -->
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>Pi Agent connects to model APIs and tools on your local network when you configure an intranet Base URL.</string>
   </dict>
 </plist>
