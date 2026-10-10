@@ -103,39 +103,27 @@ jobs:
           tagName: v__VERSION__
           releaseName: pi-agent-desktop v__VERSION__
           releaseBody: |
-            ## Pi Agent Desktop 0.6.1
+            ## Pi Agent Desktop 0.6.4
 
-            This release gives the desktop app a more native look and feel on macOS, and tidies the composer.
+            Fixes macOS intranet Base URL connectivity on Sequoia+, and ships the Local Network privacy declaration required for packaged builds.
 
-            ### New
+            ### Fixed
 
-            - Right-click a file Pi wrote, a link to a local file, or a file name in inline code to **Open**, **Open With** (macOS), **Reveal in Finder / Explorer** or **Copy Path**.
-            - macOS: a translucent sidebar that blends with the desktop, native menus, and desktop-style cursor and text-selection behavior.
-
-            ### Improved
-
-            - A refined type scale, hairline borders and native-feeling hover motion across the app.
-            - The session controls (model, thinking level, tools) now sit below the input card instead of crowding it.
-            - The new-session screen no longer shows the update chip; update status stays in Settings › General.
+            - macOS Sequoia+: connecting to RFC1918 / `.local` model relays no longer fails instantly with `EHOSTUNREACH` when the host is reachable from Terminal. The app and Node helper now declare **Local Network** usage so the system can prompt and grant access.
+            - Error text for LAN `EHOSTUNREACH` points to **System Settings → Privacy & Security → Local Network**.
 
             Bundled components: pi 1.1.0, pi-web 0.10.0.
 
             ---
 
-            ## Pi Agent Desktop 0.6.1
+            ## Pi Agent Desktop 0.6.4
 
-            这个版本让桌面 App 在 macOS 上更有原生质感，并整理了输入区。
+            修复 macOS Sequoia+ 下内网 Base URL 连不上的问题，并为打包版补上本地网络隐私声明。
 
-            ### 新增
+            ### 修复
 
-            - 在 Pi 写出的文件、指向本地文件的链接，或行内代码里的文件名上点右键，可以**打开**、**用其他应用打开**（macOS）、**在 Finder / 资源管理器中显示**或**复制路径**。
-            - macOS：侧边栏改为半透明并与桌面融合，菜单改用原生菜单，光标和文本选择行为也更接近桌面应用。
-
-            ### 改进
-
-            - 全应用统一了字号层级、细线边框和更自然的悬停动效。
-            - 会话控制（模型、思考强度、工具）移到输入卡片下方，不再挤在输入框里。
-            - 新会话页面不再显示更新提示；更新状态保留在 设置 › 通用。
+            - macOS Sequoia+：在终端能通的情况下，访问 RFC1918 / `.local` 模型中继不再立刻报 `EHOSTUNREACH`。主程序与 Node 辅助进程已声明**本地网络**用途，系统可弹出并授予权限。
+            - 局域网 `EHOSTUNREACH` 的报错会提示到 **系统设置 → 隐私与安全性 → 本地网络**。
 
             内置组件版本：pi 1.1.0、pi-web 0.10.0。
           releaseDraft: true
