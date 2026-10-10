@@ -2,16 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
   <dict>
-    <key>NSAppTransportSecurity</key>
-    <dict>
-      <key>NSAllowsLocalNetworking</key>
-      <true/>
-    </dict>
-    <key>NSDesktopFolderUsageDescription</key>
-    <string>Pi Agent 需要访问您的桌面文件夹,以便在添加项目时选择其中的目录。Pi Agent needs access to your Desktop folder to pick a project directory.</string>
-    <key>NSDocumentsFolderUsageDescription</key>
-    <string>Pi Agent 需要访问您的文稿文件夹,以便在添加项目时选择其中的目录。Pi Agent needs access to your Documents folder to pick a project directory.</string>
-    <key>NSDownloadsFolderUsageDescription</key>
-    <string>Pi Agent 需要访问您的下载文件夹,以便在添加项目时选择其中的目录。Pi Agent needs access to your Downloads folder to pick a project directory.</string>
+    <!--
+      Merged into the macOS app bundle by Tauri (beside tauri.conf.json).
+      Sequoia+ Local Network privacy: without this key, LAN Base URLs never
+      prompt and fail with EHOSTUNREACH from the WebView side as well.
+    -->
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>Pi Agent connects to model APIs and tools on your local network when you configure an intranet Base URL.</string>
   </dict>
 </plist>

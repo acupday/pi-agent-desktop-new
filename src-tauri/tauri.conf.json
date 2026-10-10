@@ -33,9 +33,7 @@
     "createUpdaterArtifacts": true,
     "macOS": {
       "minimumSystemVersion": "11.0",
-      "extendInfo": {
-        "NSLocalNetworkUsageDescription": "Pi Agent connects to model APIs and tools on your local network when you configure an intranet Base URL."
-      }
+      "infoPlist": "Info.plist"
     }
   },
   "plugins": {

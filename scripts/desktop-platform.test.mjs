@@ -52,14 +52,13 @@ test("Linux and Windows packaging include the bundled Node runtime", async () =>
 });
 
 test("macOS packaging declares Local Network usage for intranet Base URLs", async () => {
-  const [helperPlist, tauriConfigSource] = await Promise.all([
+  const [helperPlist, appPlist, tauriConfigSource] = await Promise.all([
     readFile(join(root, "desktop", "server-helper-Info.plist"), "utf8"),
+    readFile(join(root, "src-tauri", "Info.plist"), "utf8"),
     readFile(join(root, "src-tauri", "tauri.conf.json"), "utf8"),
   ]);
   const tauriConfig = JSON.parse(tauriConfigSource);
   assert.match(helperPlist, /NSLocalNetworkUsageDescription/);
-  assert.equal(
-    tauriConfig.bundle?.macOS?.extendInfo?.NSLocalNetworkUsageDescription?.includes("local network"),
-    true,
-  );
+  assert.match(appPlist, /NSLocalNetworkUsageDescription/);
+  assert.equal(tauriConfig.bundle?.macOS?.infoPlist, "Info.plist");
 });
